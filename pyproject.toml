@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "vio-sim"
+version = "0.1.0"
+description = ""
+authors = ["Aurélien Montmejat <aurelien.montmejat@gmail.com>"]
+readme = "README.md"
+packages = [{include = "vio_sim"}]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.13"
+numpy = "^1.26.1"
+rerun-sdk = "^0.9.1"
+scipy = "^1.11.3"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
