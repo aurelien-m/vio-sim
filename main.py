@@ -3,12 +3,13 @@ import rerun as rr
 from robot import Robot
 from numpy.linalg import norm
 import numpy as np
+from utils import normalize
 
 
 def log_frame(position: np.array, R: np.array) -> rr.Arrows3D:
-    x = R @ np.array([1, 0, 0])
-    y = R @ np.array([0, 1, 0])
-    z = R @ np.array([0, 0, 1])
+    x = normalize(R @ np.array([1, 0, 0]))
+    y = normalize(R @ np.array([0, 1, 0]))
+    z = normalize(R @ np.array([0, 0, 1]))
 
     origins = [position, position, position]
     vectors = [x, y, z]
@@ -25,7 +26,7 @@ def log_frame(position: np.array, R: np.array) -> rr.Arrows3D:
 
 
 if __name__ == "__main__":
-    trajectory = [[0, 0, 0], [13, 8, 1], [22, 12, 3], [27, 24, 9]]
+    trajectory = [[0, 0, 20], [13, 8, 21], [22, 12, 23], [27, 24, 21]]
     robot = Robot(trajectory)
     rr.init("robot simulator", spawn=True)
 
@@ -38,14 +39,17 @@ if __name__ == "__main__":
         robot.step()
 
         rr.set_time_seconds("robot_clock", robot.clock)
-        rr.log("robot/velocity", rr.Tensor([norm(robot.velocity)]))
-        rr.log("robot/acceleration", rr.Tensor([norm(robot.acceleration)]))
+        rr.log("robot/velocity_norm", rr.Tensor([norm(robot.velocity)]))
+        rr.log("robot/velocity", rr.Tensor(robot.velocity))
+        rr.log("robot/acceleration_norm", rr.Tensor([norm(robot.acceleration)]))
+        rr.log("robot/acceleration", rr.Tensor(robot.acceleration))
+        rr.log("robot/angle_velocity", rr.Tensor(robot.angle_velocity))
         rr.log("world/position", rr.Points3D(robot.position))
 
         origins, vectors = log_frame(robot.position, robot.R.T)
         frame_origins += origins
         frame_vectors += vectors
-        frame_colors.append([[255, 0, 0], [0, 255, 0], [0, 0, 255]])
+        frame_colors += [[255, 0, 0], [0, 255, 0], [0, 0, 255]]
 
         positions.append(robot.position)
 
