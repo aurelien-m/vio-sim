@@ -1,61 +1,53 @@
-import rerun as rr
-
-from robot import Robot
-from numpy.linalg import norm
 import numpy as np
-from utils import normalize
+import rerun as rr
+from numpy.linalg import norm
+
+from viosim import Robot
+from viosim.trajectories import CubicSpineTrajectory
 
 
-def log_frame(position: np.array, R: np.array) -> rr.Arrows3D:
-    x = normalize(R @ np.array([1, 0, 0]))
-    y = normalize(R @ np.array([0, 1, 0]))
-    z = normalize(R @ np.array([0, 0, 1]))
+class RerunRobotLogger:
+    def __init__(self):
+        rr.init("VIO Simulator", spawn=True)
+        self.robot_frame_colors = [[255, 0, 0], [0, 255, 0], [0, 0, 255]]
+        self.positions = []
 
-    origins = [position, position, position]
-    vectors = [x, y, z]
-    rr.log(
-        "world/frame",
-        rr.Arrows3D(
-            origins=origins,
-            vectors=vectors,
-            colors=[[255, 0, 0], [0, 255, 0], [0, 0, 255]],
-        ),
-    )
+    def log(self, robot: Robot) -> None:
+        rr.set_time_seconds("robot_clock", robot.clock)
+        rr.log("robot/velocity", rr.Tensor(robot.velocity))
+        rr.log("robot/acceleration", rr.Tensor(robot.acceleration))
+        rr.log("robot/angle_velocity", rr.Tensor(robot.angle_velocity))
 
-    return origins, vectors
+        rr.log("plot/velocity", rr.TimeSeriesScalar(norm(robot.velocity)))
+        rr.log("plot/acceleration", rr.TimeSeriesScalar(norm(robot.acceleration)))
+
+        x = robot.R_WtoR.T @ np.array([1, 0, 0])
+        y = robot.R_WtoR.T @ np.array([0, 1, 0])
+        z = robot.R_WtoR.T @ np.array([0, 0, 1])
+
+        origin = [robot.position, robot.position, robot.position]
+        vector = [x, y, z]
+        rr.log(
+            "world/frame",
+            rr.Arrows3D(origins=origin, vectors=vector, colors=self.robot_frame_colors),
+        )
+
+        self.positions.append(robot.position)
+
+    def log_trajectory(self) -> None:
+        rr.log("world/points", rr.Points3D(self.positions), timeless=True)
 
 
 if __name__ == "__main__":
-    trajectory = [[0, 0, 20], [13, 8, 21], [22, 12, 23], [27, 24, 21]]
+    trajectory = CubicSpineTrajectory(
+        control_points=[[0, 0, 0], [13, 8, 1], [22, 12, 6], [27, 24, 1]],
+        target_spacing=0.5,
+    )
     robot = Robot(trajectory)
-    rr.init("robot simulator", spawn=True)
-
-    positions = []
-    frame_origins = []
-    frame_vectors = []
-    frame_colors = []
+    logger = RerunRobotLogger()
 
     while robot.moving:
         robot.step()
+        logger.log(robot)
 
-        rr.set_time_seconds("robot_clock", robot.clock)
-        rr.log("robot/velocity_norm", rr.Tensor([norm(robot.velocity)]))
-        rr.log("robot/velocity", rr.Tensor(robot.velocity))
-        rr.log("robot/acceleration_norm", rr.Tensor([norm(robot.acceleration)]))
-        rr.log("robot/acceleration", rr.Tensor(robot.acceleration))
-        rr.log("robot/angle_velocity", rr.Tensor(robot.angle_velocity))
-        rr.log("world/position", rr.Points3D(robot.position))
-
-        origins, vectors = log_frame(robot.position, robot.R.T)
-        frame_origins += origins
-        frame_vectors += vectors
-        frame_colors += [[255, 0, 0], [0, 255, 0], [0, 0, 255]]
-
-        positions.append(robot.position)
-
-    rr.log("world/trajectory", rr.Points3D(positions), timeless=True)
-    rr.log(
-        "world/frames",
-        rr.Arrows3D(origins=frame_origins, vectors=frame_vectors, colors=frame_colors),
-        timeless=True,
-    )
+    logger.log_trajectory()
