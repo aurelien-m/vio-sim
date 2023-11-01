@@ -1,24 +1,24 @@
 from typing import Any
 
 import numpy as np
-from scipy.spatial.transform import Rotation
+
+from viosim.sensors import Camera
 
 
 class Robot:
-    def __init__(
-        self,
-        trajectory: Any,
-        frequency: float = 0.1,
-    ) -> None:
+    def __init__(self, trajectory: Any, frequency: float, camera: Camera) -> None:
         self.trajectory = trajectory
+        point, rotation = self.trajectory.pop()
 
-        self.position = np.array([0, 0, 0])
+        self.position = point
         self.velocity = np.array([0, 0, 0])
         self.acceleration = np.array([0, 0, 0])
-        self.rotation = Rotation.from_euler("xyz", [0, 0, 0])
+        self.rotation = rotation
         self.angle_velocity = np.array([0, 0, 0])
 
-        self.sensors = {}
+        self.camera = camera
+        self.camera.update_pose(self.position, self.rotation)
+
         self.frequency = frequency
         self.moving = True
         self.clock = 0
@@ -27,11 +27,10 @@ class Robot:
     def R_WtoR(self) -> np.array:
         return self.rotation.as_matrix()
 
-    def add_sensor(self, name: str, sensor: Any) -> None:
-        sensor.update_pose(self.position, self.rotation)
-        self.sensors[name] = sensor
+    def init(self, world):
+        self.camera.capture(world)
 
-    def step(self):
+    def step(self, world):
         if len(self.trajectory) == 0:
             self.moving = False
             return
@@ -52,6 +51,5 @@ class Robot:
         self.acceleration = new_acceleration
 
         self.clock += self.frequency
-
-        for sensor in self.sensors.values():
-            sensor.update_pose(self.position, self.rotation)
+        self.camera.update_pose(self.position, self.rotation)
+        self.camera.capture(world)
