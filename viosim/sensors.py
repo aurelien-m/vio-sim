@@ -1,15 +1,54 @@
+from typing import List
 import numpy as np
 from scipy.spatial.transform import Rotation
 
 
 class Camera:
-    def __init__(self, P_CinR: np.ndarray, rot_RtoC: Rotation) -> "Camera":
-        self.P_CinR = P_CinR
+    def __init__(
+        self,
+        pos_CinR: np.ndarray,
+        rot_RtoC: Rotation,
+        principal_point: List[float] = (320, 320),
+        image_size: List[float] = (640, 640),
+        flocal: float = 0.002,
+        pixel_size: List[float] = (2e-6, 2e-6),
+    ) -> "Camera":
+        self.pos_CinR = pos_CinR
         self.rot_RtoC = rot_RtoC
+        self.image_size = image_size
+        self.K = np.array(
+            [
+                [flocal / pixel_size[0], 0, principal_point[0]],
+                [0, flocal / pixel_size[1], principal_point[1]],
+                [0, 0, 1],
+            ]
+        )
 
-    def update_pose(self, P_RinW: np.ndarray, rot_RtoW: Rotation) -> None:
-        self.position = P_RinW + rot_RtoW.as_matrix() @ self.P_CinR
-        self.rotation = rot_RtoW * self.rot_RtoC
+    @property
+    def R_(self):
+        pass
+
+    def update_pose(self, pos_RinW: np.ndarray, rot_RtoW: Rotation) -> None:
+        self.position = pos_RinW + rot_RtoW.as_matrix() @ self.pos_CinR
+        self.rotation = self.rot_RtoC * rot_RtoW
+
+    def to_xy(self, point_in_world: List[float]):
+        point_in_world = np.vstack((np.array(point_in_world).reshape((3, 1)), 1))
+        projection_matrix = np.hstack(
+            (self.rotation.as_matrix(), self.position.reshape((3, 1)))
+        )
+
+        point_in_image = self.K @ projection_matrix @ point_in_world
+        point_in_image = (point_in_image / point_in_image[2])[:2].flatten()
+
+        if (
+            point_in_image[0] < 0
+            or point_in_image[0] > self.image_size[0]
+            or point_in_image[1] < 0
+            or point_in_image[1] > self.image_size[1]
+        ):
+            return None
+        return point_in_image
 
 
 class IMU:

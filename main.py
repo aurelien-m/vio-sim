@@ -35,8 +35,9 @@ class RerunRobotLogger:
         )
 
         self.positions.append(robot.position)
+        rr.log("world/points", rr.Points3D(self.positions), timeless=True)
 
-        for sensor in robot.sensors:
+        for sensor in robot.sensors.values():
             if isinstance(sensor, Camera):
                 rng = np.random.default_rng(12345)
                 image = rng.uniform(0, 255, size=[3, 3, 3])
@@ -53,9 +54,6 @@ class RerunRobotLogger:
                 )
                 rr.log("world/camera/image", rr.Image(image))
 
-    def log_trajectory(self) -> None:
-        rr.log("world/points", rr.Points3D(self.positions), timeless=True)
-
 
 if __name__ == "__main__":
     trajectory = CubicSpineTrajectory(
@@ -64,13 +62,19 @@ if __name__ == "__main__":
     )
     robot = Robot(trajectory)
 
-    camera = Camera(P_CinR=np.array([0, 0, 0]), rot_RtoC=Rotation.identity())
-    robot.add_sensor(camera)
+    camera = Camera(
+        pos_CinR=np.array([0, 0, 0]),
+        rot_RtoC=Rotation.from_euler("xyz", [0, -np.pi / 2, -np.pi / 2]),
+    )
+    robot.add_sensor("camera", camera)
 
     logger = RerunRobotLogger()
+
+    P_inW = [17, 10, 3]
+    rr.log("world/some_point", rr.Points3D([P_inW]), timeless=True)
 
     while robot.moving:
         robot.step()
         logger.log(robot)
 
-    logger.log_trajectory()
+        print(robot.sensors["camera"].to_xy(P_inW))
