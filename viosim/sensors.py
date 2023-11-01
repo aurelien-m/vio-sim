@@ -1,8 +1,19 @@
 import numpy as np
+from scipy.spatial.transform import Rotation
+
+
+class Camera:
+    def __init__(self, P_CinR: np.ndarray, rot_RtoC: Rotation) -> "Camera":
+        self.P_CinR = P_CinR
+        self.rot_RtoC = rot_RtoC
+
+    def update_pose(self, P_RinW: np.ndarray, rot_RtoW: Rotation) -> None:
+        self.position = P_RinW + rot_RtoW.as_matrix() @ self.P_CinR
+        self.rotation = rot_RtoW * self.rot_RtoC
 
 
 class IMU:
-    def __call__(
+    def __init__(
         self,
         gyro_noise_std: float = 0.1,
         accel_noise_std: float = 0.1,

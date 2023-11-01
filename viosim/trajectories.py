@@ -8,7 +8,8 @@ from scipy.spatial.transform import Rotation
 def rotation_from_direction(vect: np.ndarray) -> Rotation:
     theta = np.arccos(vect[2] / np.linalg.norm(vect))
     phi = np.arctan2(vect[1], vect[0])
-    return Rotation.from_euler("xyz", [theta, phi, 0.0])
+    R_x = Rotation.from_euler("xyz", [np.pi / 2, 0.0, 0.0])
+    return R_x * Rotation.from_euler("xyz", [theta, phi, 0.0])
 
 
 class CubicSpineTrajectory:

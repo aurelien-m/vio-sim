@@ -18,6 +18,7 @@ class Robot:
         self.rotation = Rotation.from_euler("xyz", [0, 0, 0])
         self.angle_velocity = np.array([0, 0, 0])
 
+        self.sensors = []
         self.frequency = frequency
         self.moving = True
         self.clock = 0
@@ -25,6 +26,10 @@ class Robot:
     @property
     def R_WtoR(self) -> np.array:
         return self.rotation.as_matrix()
+
+    def add_sensor(self, sensor: Any) -> None:
+        sensor.update_pose(self.position, self.rotation)
+        self.sensors.append(sensor)
 
     def step(self):
         if len(self.trajectory) == 0:
@@ -47,3 +52,6 @@ class Robot:
         self.acceleration = new_acceleration
 
         self.clock += self.frequency
+
+        for sensor in self.sensors:
+            sensor.update_pose(self.position, self.rotation)

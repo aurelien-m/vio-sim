@@ -1,8 +1,10 @@
 import numpy as np
 import rerun as rr
 from numpy.linalg import norm
+from scipy.spatial.transform import Rotation
 
 from viosim import Robot
+from viosim.sensors import Camera
 from viosim.trajectories import CubicSpineTrajectory
 
 
@@ -34,6 +36,23 @@ class RerunRobotLogger:
 
         self.positions.append(robot.position)
 
+        for sensor in robot.sensors:
+            if isinstance(sensor, Camera):
+                rng = np.random.default_rng(12345)
+                image = rng.uniform(0, 255, size=[3, 3, 3])
+
+                rr.log(
+                    "world/camera",
+                    rr.Transform3D(
+                        translation=sensor.position,
+                        mat3x3=sensor.rotation.as_matrix().T,
+                    ),
+                )
+                rr.log(
+                    "world/camera/image", rr.Pinhole(focal_length=3, width=3, height=3)
+                )
+                rr.log("world/camera/image", rr.Image(image))
+
     def log_trajectory(self) -> None:
         rr.log("world/points", rr.Points3D(self.positions), timeless=True)
 
@@ -44,6 +63,10 @@ if __name__ == "__main__":
         target_spacing=0.5,
     )
     robot = Robot(trajectory)
+
+    camera = Camera(P_CinR=np.array([0, 0, 0]), rot_RtoC=Rotation.identity())
+    robot.add_sensor(camera)
+
     logger = RerunRobotLogger()
 
     while robot.moving:
