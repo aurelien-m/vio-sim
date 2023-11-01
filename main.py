@@ -77,4 +77,10 @@ if __name__ == "__main__":
         robot.step()
         logger.log(robot)
 
-        print(robot.sensors["camera"].to_xy(P_inW))
+        xy = robot.sensors["camera"].to_xy(P_inW)
+        if xy is None:
+            continue
+
+        P_inC = robot.sensors["camera"].to_cam(P_inW)
+        point = robot.sensors["camera"].to_world(xy[0], xy[1], P_inC[2])
+        print(P_inW, "vs", point, f"({xy})")

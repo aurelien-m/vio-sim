@@ -25,20 +25,19 @@ class Camera:
         )
 
     @property
-    def R_(self):
-        pass
+    def T_inW(self):
+        return self.position.reshape((3, 1))
+
+    @property
+    def R_WtoC(self):
+        return self.rotation.as_matrix()
 
     def update_pose(self, pos_RinW: np.ndarray, rot_RtoW: Rotation) -> None:
         self.position = pos_RinW + rot_RtoW.as_matrix() @ self.pos_CinR
         self.rotation = self.rot_RtoC * rot_RtoW
 
     def to_xy(self, point_in_world: List[float]):
-        point_in_world = np.vstack((np.array(point_in_world).reshape((3, 1)), 1))
-        projection_matrix = np.hstack(
-            (self.rotation.as_matrix(), self.position.reshape((3, 1)))
-        )
-
-        point_in_image = self.K @ projection_matrix @ point_in_world
+        point_in_image = self.K @ self.to_cam(point_in_world).reshape((3, 1))
         point_in_image = (point_in_image / point_in_image[2])[:2].flatten()
 
         if (
@@ -49,6 +48,15 @@ class Camera:
         ):
             return None
         return point_in_image
+
+    def to_cam(self, point_in_world: List[float]):
+        point_in_world = np.array(point_in_world).reshape((3, 1))
+        return self.R_WtoC @ (point_in_world - self.T_inW)
+
+    def to_world(self, x: int, y: int, depth: float):
+        point_in_image = np.array([x, y, 1]) * depth
+        point_in_camera = np.linalg.inv(self.K) @ point_in_image
+        return self.R_WtoC.T @ point_in_camera + self.position
 
 
 class IMU:
