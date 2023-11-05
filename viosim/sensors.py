@@ -81,25 +81,53 @@ class Camera:
 class IMU:
     def __init__(
         self,
-        gyro_noise_std: float = 0.1,
-        accel_noise_std: float = 0.1,
-        initial_gyro_bias: np.array = np.array([0, 0, 0]),
-        initial_accel_bias: np.array = np.array([0, 0, 0]),
+        gyro_noise_std: float = 0.01,
+        accel_noise_std: float = 0.01,
+        initial_gyro_bias: np.array = np.array([0.0, 0.0, 0.0]),
+        gyro_bias_random_walk_std: float = 0.01,
+        initial_accel_bias: np.array = np.array([0.0, 0.0, 0.0]),
+        accel_bias_random_walk_std: float = 0.01,
         gravity: float = -9.81,
     ) -> "IMU":
+        # TODO: these should be function of time somehow
         self.gyro_noise_std = gyro_noise_std
         self.accel_noise_std = accel_noise_std
+        self.gyro_bias_std = gyro_bias_random_walk_std
+        self.accel_bias_std = accel_bias_random_walk_std
+
         self.gravity = np.array([[0], [0], [gravity]])
         self.gyroscope = np.array([0, 0, 0])
         self.accelerometer = np.array([0, 0, 0])
         self.gyro_bias = initial_gyro_bias
         self.accel_bias = initial_accel_bias
 
-    def step(self, angle_velocity: np.array, acceleration: np.array, R: np.array):
-        # TODO: Take the bias random walk into account
+    def init(self, position: np.ndarray, rotation: Rotation):
+        self.position = position
+        self.rotation = rotation
+        self.velocity = np.array([0, 0, 0])
+        self.acceleration = np.array([0, 0, 0])
+        self.angle_velocity = np.array([0, 0, 0])
+
+    def update(self, position: np.ndarray, rotation: Rotation, dt: float):
+        self.gyro_bias += np.random.normal(self.gyro_bias, self.gyro_bias_std, 3)
+        self.accel_bias += np.random.normal(self.accel_bias, self.accel_bias_std, 3)
+
+        self.angle_velocity = (
+            (self.rotation).as_euler("xyz") - rotation.as_euler("xyz")
+        ) / dt
+        self.rotation = rotation
+
+        new_velocity = (position - self.position) / dt
+        self.position = position
+
+        self.acceleration = (self.velocity - new_velocity) / dt
+        self.velocity = new_velocity
 
         n_g = np.random.normal(0, self.gyro_noise_std, 3)
-        self.gyroscope = angle_velocity + self.gyro_bias + n_g
-
+        self.gyroscope = self.angle_velocity + self.gyro_bias + n_g
         n_a = np.random.normal(0, self.accel_noise_std, 3)
-        self.accelerometer = R @ (acceleration - self.gravity) + self.accel_bias + n_a
+        self.accelerometer = (
+            self.rotation.as_matrix() @ (self.acceleration - self.gravity)
+            + self.accel_bias
+            + n_a
+        )

@@ -2,30 +2,46 @@ from typing import Any
 
 import numpy as np
 
-from viosim.sensors import Camera
+from viosim.sensors import Camera, IMU
 
 
 class Robot:
     def __init__(self, trajectory: Any, frequency: float, camera: Camera) -> None:
         self.trajectory = trajectory
-        point, rotation = self.trajectory.pop()
-
-        self.position = point
-        self.velocity = np.array([0, 0, 0])
-        self.acceleration = np.array([0, 0, 0])
-        self.rotation = rotation
-        self.angle_velocity = np.array([0, 0, 0])
-
-        self.camera = camera
-        self.camera.update_pose(self.position, self.rotation)
+        position, rotation = self.trajectory.pop()
 
         self.frequency = frequency
         self.moving = True
         self.clock = 0
 
+        self.camera = camera
+        self.camera.update_pose(position, rotation)
+        self.imu = IMU()
+        self.imu.init(position, rotation)
+
     @property
     def R_WtoR(self) -> np.array:
-        return self.rotation.as_matrix()
+        return self.imu.rotation.as_matrix()
+
+    @property
+    def position(self) -> np.array:
+        return self.imu.position
+
+    @property
+    def velocity(self) -> np.array:
+        return self.imu.velocity
+
+    @property
+    def acceleration(self) -> np.array:
+        return self.imu.acceleration
+
+    @property
+    def angle_velocity(self) -> np.array:
+        return self.imu.angle_velocity
+
+    @property
+    def rotation(self) -> np.array:
+        return self.camera.rotation.as_matrix()
 
     def init(self, world):
         self.camera.capture(world)
@@ -35,21 +51,10 @@ class Robot:
             self.moving = False
             return
 
-        point, rotation = self.trajectory.pop()
-
-        self.angle_velocity = (
-            self.rotation.as_euler("xyz") - rotation.as_euler("xyz")
-        ) / self.frequency
-        self.rotation = rotation
-
-        new_position = point
-        new_velocity = (self.position - new_position) / self.frequency
-        new_acceleration = (self.velocity - new_velocity) / self.frequency
-
-        self.position = new_position
-        self.velocity = new_velocity
-        self.acceleration = new_acceleration
-
+        position, rotation = self.trajectory.pop()
         self.clock += self.frequency
-        self.camera.update_pose(self.position, self.rotation)
+
+        self.camera.update_pose(position, rotation)
         self.camera.capture(world)
+
+        self.imu.update(position, rotation, self.frequency)
