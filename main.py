@@ -54,7 +54,7 @@ class RerunRobotLogger:
         )
         rr.log("world/camera/image", rr.Image(robot.camera.image))
 
-        rr.log("world/features", rr.Points3D(world.features))
+        rr.log("world/features", rr.Points3D([f.position for f in world.features]))
 
 
 if __name__ == "__main__":

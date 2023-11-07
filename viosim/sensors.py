@@ -1,7 +1,23 @@
+from dataclasses import dataclass
 from typing import List
 
 import numpy as np
 from scipy.spatial.transform import Rotation
+
+from viosim.world import World, WorldFeature
+
+
+@dataclass
+class ImageFeature:
+    x: int
+    y: int
+    world_feature: WorldFeature
+
+
+@dataclass
+class ImageCapture:
+    image: np.ndarray
+    observations: List[ImageFeature]
 
 
 class Camera:
@@ -29,7 +45,7 @@ class Camera:
             ]
         )
 
-        self.observation_count = 0
+        self.capture_data = ImageCapture(None, [])
 
     @property
     def T_inW(self):
@@ -43,21 +59,22 @@ class Camera:
         self.position = pos_RinW + rot_RtoW.as_matrix() @ self.pos_CinR
         self.rotation = self.rot_RtoC * rot_RtoW
 
-    def capture(self, world: any) -> None:
+    def capture(self, world: World) -> None:
         image = np.zeros((self.width, self.height, 3), dtype=np.uint8)
-        observation_count = 0
+        observations = []
 
         for feature in world.features:
-            xy = self.to_xy(feature)
+            xy = self.to_xy(feature.position)
             if xy is None:
                 continue
 
             x, y = xy
             image[int(y), int(x)] = [255, 255, 255]
-            observation_count += 1
+            observations.append(ImageFeature(x, y, feature))
 
+        self.capture_data.image = image
+        self.capture_data.observations = observations
         self.image = image
-        self.observation_count = observation_count
 
     def to_xy(self, point_in_world: List[float]) -> np.ndarray:
         point_in_image = self.K @ self.to_cam(point_in_world).reshape((3, 1))
